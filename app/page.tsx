@@ -1,277 +1,703 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { Cormorant, DM_Sans } from 'next/font/google';
+import styles from './WishlistPage.module.css';
 
-// Struktur Data TypeScript agar tidak error merah
+type WishCategory = 'boy' | 'together' | 'girl';
+type StatusFilter = 'all' | 'active' | 'done';
+type SortBy = 'newest' | 'oldest' | 'az' | 'doneFirst';
+
 interface WishItem {
   id: string;
+  room_id: string;
   text: string;
-  category: 'boy' | 'together' | 'girl';
-  isChecked: boolean;
-  createdAt: number;
+  category: WishCategory;
+  is_checked: boolean;
+  created_at: number;
+}
+
+type WishRow = WishItem;
+type WishInsert = WishItem;
+type WishUpdate = Partial<Pick<WishItem, 'text' | 'category' | 'is_checked' | 'created_at'>>;
+
+type Database = {
+  public: {
+    Tables: {
+      wishes: {
+        Row: WishRow;
+        Insert: WishInsert;
+        Update: WishUpdate;
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
+
+const serifFont = Cormorant({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  style: ['normal', 'italic'],
+  variable: '--wishlist-serif',
+  display: 'swap',
+});
+
+const sansFont = DM_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
+  variable: '--wishlist-sans',
+  display: 'swap',
+});
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const isSupabaseReady = Boolean(supabaseUrl && supabaseAnonKey);
+
+const supabase = isSupabaseReady
+  ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
+  : null;
+
+const categories: WishCategory[] = ['boy', 'together', 'girl'];
+
+function createRoomID() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `room_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  }
+
+  return `room_${Math.random().toString(36).slice(2, 14)}`;
+}
+
+function createWishID() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `wish_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readStorage(key: string, fallback: string) {
+  if (typeof window === 'undefined') return fallback;
+
+  try {
+    return window.localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorage(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // localStorage can be blocked in private mode. The app should keep working without it.
+  }
+}
+
+function getInitialRoomID() {
+  if (typeof window === 'undefined') return '';
+
+  const params = new URLSearchParams(window.location.search);
+  return params.get('room') || readStorage('wishlist_room_id', '') || createRoomID();
+}
+
+function mapRow(row: WishRow): WishItem {
+  return {
+    id: row.id,
+    room_id: row.room_id,
+    text: row.text,
+    category: row.category,
+    is_checked: row.is_checked,
+    created_at: row.created_at,
+  };
+}
+
+function sortNewest(items: WishItem[]) {
+  return [...items].sort((a, b) => b.created_at - a.created_at);
+}
+
+function formatDate(value: number) {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+async function copyText(value: string) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  textarea.remove();
 }
 
 export default function WishlistPage() {
-  const [roomID, setRoomID] = useState<string>('');
-  const [boyName, setBoyName] = useState<string>('Cowo');
-  const [girlName, setGirlName] = useState<string>('Cewe');
+  const [roomID, setRoomID] = useState('');
+  const [boyName, setBoyName] = useState('Dia');
+  const [girlName, setGirlName] = useState('Kamu');
+  const [tempBoyName, setTempBoyName] = useState('Dia');
+  const [tempGirlName, setTempGirlName] = useState('Kamu');
+
   const [wishes, setWishes] = useState<WishItem[]>([]);
-  const [newWish, setNewWish] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'boy' | 'together' | 'girl'>('together');
-  const [isEditingNames, setIsEditingNames] = useState<boolean>(false);
-  const [notification, setNotification] = useState<string>('');
+  const [newWish, setNewWish] = useState('');
+  const [activeTab, setActiveTab] = useState<WishCategory>('together');
+  const [editingNames, setEditingNames] = useState(false);
+  const [notif, setNotif] = useState<{ message: string; key: number } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
 
-  // 1. Inisialisasi Room ID Otomatis saat pertama kali buka (Tanpa Login)
-  useEffect(() => {
-    // Cek apakah ada Room ID di URL (jika pasangan masuk lewat link undangan)
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomFromUrl = urlParams.get('room');
-    
-    let currentRoom = roomFromUrl || localStorage.getItem('wishlist_room_id');
-    
-    if (!currentRoom) {
-      // Jika benar-benar baru, buat ID unik acak
-      currentRoom = 'room_' + Math.random().toString(36).substring(2, 11);
-    }
-    
-    localStorage.setItem('wishlist_room_id', currentRoom);
-    setRoomID(currentRoom);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('newest');
 
-    // Ambil nama kustom jika ada
-    const savedBoy = localStorage.getItem('wishlist_boy_name');
-    const savedGirl = localStorage.getItem('wishlist_girl_name');
-    if (savedBoy) setBoyName(savedBoy);
-    if (savedGirl) setGirlName(savedGirl);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ========================================================
-    // TODO: Di sini tempat Anda melakukan Real-time Sync Database!
-    // Jika pakai Supabase / Firebase, jalankan fungsi Subscribe/Listen
-    // berdasarkan `currentRoom` ini untuk mengisi setWishes() secara otomatis.
-    // ========================================================
-    const savedWishes = localStorage.getItem(`wishes_${currentRoom}`);
-    if (savedWishes) {
-      setWishes(JSON.parse(savedWishes));
-    }
+  const notify = useCallback((message: string) => {
+    setNotif({ message, key: Date.now() });
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setNotif(null), 2800);
   }, []);
 
-  // 2. Simulasi Simpan Data (Nanti digantikan fungsi insert/update database)
-  const saveToDatabase = (updatedWishes: WishItem[]) => {
-    setWishes(updatedWishes);
-    if (roomID) {
-      localStorage.setItem(`wishes_${roomID}`, JSON.stringify(updatedWishes));
-      
-      // DI SINI: Jalankan query update ke Database Anda (Supabase/Firebase)
-      // agar HP pasangan langsung mendeteksi perubahannya secara real-time.
+  useEffect(() => {
+    const nextRoomID = getInitialRoomID();
+    const nextBoyName = readStorage('wishlist_boy_name', 'Dia');
+    const nextGirlName = readStorage('wishlist_girl_name', 'Kamu');
+
+    setRoomID(nextRoomID);
+    setBoyName(nextBoyName);
+    setGirlName(nextGirlName);
+    setTempBoyName(nextBoyName);
+    setTempGirlName(nextGirlName);
+
+    if (nextRoomID) writeStorage('wishlist_room_id', nextRoomID);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!roomID) return;
+
+    const client = supabase;
+
+    if (!client) {
+      setIsLoading(false);
+      notify('Supabase belum dikonfigurasi');
+      return;
     }
-  };
 
-  const triggerNotification = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(''), 3000);
-  };
+    let active = true;
 
-  const handleAddWish = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newWish.trim()) return;
+    async function loadWishes() {
+      setIsLoading(true);
 
-    const newItem: WishItem = {
-      id: 'wish_' + Date.now(),
-      text: newWish.trim(),
+      const { data, error } = await client
+        .from('wishes')
+        .select('*')
+        .eq('room_id', roomID)
+        .order('created_at', { ascending: false });
+
+      if (!active) return;
+
+      if (error) {
+        notify('Gagal memuat wishlist');
+        setIsLoading(false);
+        return;
+      }
+
+      setWishes((data || []).map(mapRow));
+      setIsLoading(false);
+    }
+
+    void loadWishes();
+
+    const channel = client
+      .channel(`wishlist-room-${roomID}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wishes',
+          filter: `room_id=eq.${roomID}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const item = mapRow(payload.new as WishRow);
+            setWishes((prev) => (prev.some((wish) => wish.id === item.id) ? prev : sortNewest([item, ...prev])));
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            const item = mapRow(payload.new as WishRow);
+            setWishes((prev) => sortNewest(prev.map((wish) => (wish.id === item.id ? item : wish))));
+          }
+
+          if (payload.eventType === 'DELETE') {
+            const old = payload.old as Pick<WishRow, 'id'>;
+            setExitingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(old.id);
+              return next;
+            });
+            setWishes((prev) => prev.filter((wish) => wish.id !== old.id));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      void client.removeChannel(channel);
+    };
+  }, [notify, roomID]);
+
+  const names = useMemo(
+    () => ({
+      boy: boyName,
+      together: 'Bersama',
+      girl: girlName,
+    }),
+    [boyName, girlName],
+  );
+
+  const counts = useMemo(() => {
+    return wishes.reduce<Record<WishCategory, number>>(
+      (acc, wish) => {
+        acc[wish.category] += 1;
+        return acc;
+      },
+      { boy: 0, together: 0, girl: 0 },
+    );
+  }, [wishes]);
+
+  const categoryWishes = useMemo(() => wishes.filter((wish) => wish.category === activeTab), [activeTab, wishes]);
+
+  const visibleWishes = useMemo(() => {
+    const keyword = searchQuery.trim().toLowerCase();
+
+    return categoryWishes
+      .filter((wish) => {
+        const matchesSearch = !keyword || wish.text.toLowerCase().includes(keyword);
+        const matchesStatus =
+          statusFilter === 'all' ||
+          (statusFilter === 'active' && !wish.is_checked) ||
+          (statusFilter === 'done' && wish.is_checked);
+
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'oldest') return a.created_at - b.created_at;
+        if (sortBy === 'az') return a.text.localeCompare(b.text, 'id-ID');
+        if (sortBy === 'doneFirst') return Number(b.is_checked) - Number(a.is_checked) || b.created_at - a.created_at;
+        return b.created_at - a.created_at;
+      });
+  }, [categoryWishes, searchQuery, sortBy, statusFilter]);
+
+  const checkedCount = useMemo(() => categoryWishes.filter((wish) => wish.is_checked).length, [categoryWishes]);
+  const totalCount = categoryWishes.length;
+  const progressPercentage = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
+
+  const shouldShowTools = categoryWishes.length >= 4 || searchQuery || statusFilter !== 'all' || sortBy !== 'newest';
+
+  const handleAdd = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const text = newWish.trim();
+    if (!text) return;
+
+    if (!roomID || !supabase) {
+      notify('Koneksi belum siap');
+      return;
+    }
+
+    const item: WishItem = {
+      id: createWishID(),
+      room_id: roomID,
+      text,
       category: activeTab,
-      isChecked: false,
-      createdAt: Date.now()
+      is_checked: false,
+      created_at: Date.now(),
     };
 
-    saveToDatabase([newItem, ...wishes]);
     setNewWish('');
-    triggerNotification('Wishlist baru berhasil ditambahkan! ✨');
+    setWishes((prev) => sortNewest([item, ...prev]));
+
+    const { error } = await supabase.from('wishes').insert(item);
+
+    if (error) {
+      setWishes((prev) => prev.filter((wish) => wish.id !== item.id));
+      notify('Gagal menyimpan wishlist');
+      return;
+    }
+
+    inputRef.current?.focus();
   };
 
-  const handleToggleCheck = (id: string) => {
-    const updated = wishes.map((wish) => 
-      wish.id === id ? { ...wish, isChecked: !wish.isChecked } : wish
-    );
-    saveToDatabase(updated);
+  const handleStartEditNames = () => {
+    setTempBoyName(boyName);
+    setTempGirlName(girlName);
+    setEditingNames(true);
   };
 
-  const handleDeleteWish = (id: string) => {
-    const updated = wishes.filter((wish) => wish.id !== id);
-    saveToDatabase(updated);
+  const handleCancelEditNames = () => {
+    setTempBoyName(boyName);
+    setTempGirlName(girlName);
+    setEditingNames(false);
   };
 
   const handleSaveNames = () => {
-    localStorage.setItem('wishlist_boy_name', boyName);
-    localStorage.setItem('wishlist_girl_name', girlName);
-    setIsEditingNames(false);
-    triggerNotification('Nama panggilan berhasil diperbarui! 💕');
+    const nextBoyName = tempBoyName.trim() || 'Dia';
+    const nextGirlName = tempGirlName.trim() || 'Kamu';
+
+    setBoyName(nextBoyName);
+    setGirlName(nextGirlName);
+    setTempBoyName(nextBoyName);
+    setTempGirlName(nextGirlName);
+
+    writeStorage('wishlist_boy_name', nextBoyName);
+    writeStorage('wishlist_girl_name', nextGirlName);
+
+    setEditingNames(false);
+    notify('Nama diperbarui');
   };
 
-  const handleCopyShareLink = () => {
-    const shareLink = `${window.location.origin}?room=${roomID}`;
-    navigator.clipboard.writeText(shareLink);
-    triggerNotification('Link sinkronisasi disalin! Kirimkan ke pasangan Anda 📱');
+  const handleToggle = async (id: string, currentValue: boolean) => {
+    if (!supabase) {
+      notify('Supabase belum dikonfigurasi');
+      return;
+    }
+
+    setWishes((prev) => prev.map((wish) => (wish.id === id ? { ...wish, is_checked: !currentValue } : wish)));
+
+    const { error } = await supabase.from('wishes').update({ is_checked: !currentValue }).eq('id', id);
+
+    if (error) {
+      setWishes((prev) => prev.map((wish) => (wish.id === id ? { ...wish, is_checked: currentValue } : wish)));
+      notify('Gagal memperbarui status');
+    }
   };
 
-  // Perhitungan Progres Eksklusif
-  const filteredWishes = wishes.filter((w) => w.category === activeTab);
-  const checkedCount = filteredWishes.filter((w) => w.isChecked).length;
-  const progressPercent = filteredWishes.length > 0 ? Math.round((checkedCount / filteredWishes.length) * 100) : 0;
+  const handleDelete = (id: string) => {
+    const deletedItem = wishes.find((wish) => wish.id === id);
+    if (!deletedItem || exitingIds.has(id)) return;
+
+    setExitingIds((prev) => new Set([...prev, id]));
+
+    setTimeout(async () => {
+      setWishes((prev) => prev.filter((wish) => wish.id !== id));
+      setExitingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+
+      if (!supabase) {
+        setWishes((prev) => (prev.some((wish) => wish.id === id) ? prev : sortNewest([deletedItem, ...prev])));
+        notify('Supabase belum dikonfigurasi');
+        return;
+      }
+
+      const { error } = await supabase.from('wishes').delete().eq('id', id);
+
+      if (error) {
+        setWishes((prev) => (prev.some((wish) => wish.id === id) ? prev : sortNewest([deletedItem, ...prev])));
+        notify('Gagal menghapus wishlist');
+      }
+    }, 260);
+  };
+
+  const handleCopyLink = async () => {
+    if (!roomID) {
+      notify('Room belum siap');
+      return;
+    }
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', roomID);
+      await copyText(url.toString());
+      notify('Link disalin — kirim ke pasangan');
+    } catch {
+      notify('Gagal menyalin link');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#334155] font-sans antialiased selection:bg-[#F1E4C3]">
-      {/* Toast Notification */}
-      {notification && (
-        <div className="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 bg-[#1E293B] text-[#F8FAFC] px-6 py-3 rounded-full text-sm font-medium shadow-xl tracking-wide animate-fade-in-down border border-[#334155]">
-          {notification}
-        </div>
-      )}
-
-      {/* Header Premium */}
-      <header className="max-w-2xl mx-auto pt-12 px-6 text-center">
-        <div className="inline-flex items-center gap-2 bg-[#F1F5F9] px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase text-[#64748B] mb-4 border border-[#E2E8F0]">
-          ✨ Our Premium Space
-        </div>
-
-        {isEditingNames ? (
-          <div className="flex justify-center items-center gap-3 my-4 bg-white p-4 rounded-2xl shadow-sm border border-[#E2E8F0] max-w-sm mx-auto">
-            <input 
-              type="text" 
-              value={boyName} 
-              onChange={(e) => setBoyName(e.target.value)}
-              className="w-24 px-2 py-1 border-b-2 border-[#94A3B8] focus:border-[#475569] outline-none text-center font-bold text-lg"
-            />
-            <span className="text-gray-400 font-serif italic">&</span>
-            <input 
-              type="text" 
-              value={girlName} 
-              onChange={(e) => setGirlName(e.target.value)}
-              className="w-24 px-2 py-1 border-b-2 border-[#F472B6] focus:border-[#EC4899] outline-none text-center font-bold text-lg"
-            />
-            <button onClick={handleSaveNames} className="bg-[#1E293B] text-white px-3 py-1 rounded-lg text-xs font-medium hover:bg-black transition">
-              Simpan
-            </button>
+    <main className={`${styles.root} ${serifFont.variable} ${sansFont.variable}`}>
+      <section className={styles.page} data-accent={activeTab}>
+        <header className={styles.header}>
+          <div className={styles.badge} aria-live="polite">
+            <span className={styles.badgeDot} />
+            Live Sync Aktif
           </div>
-        ) : (
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#0F172A] flex justify-center items-center gap-2 font-serif">
-            <span>{boyName}</span>
-            <span className="text-[#D4AF37] font-normal">&</span>
-            <span>{girlName}</span>
-            <button onClick={() => setIsEditingNames(true)} className="text-xs text-gray-400 hover:text-gray-600 ml-1">
-              ✏️
-            </button>
-          </h1>
-        )}
-        <p className="text-sm text-[#64748B] mt-2 font-light">Merajut mimpi dan rencana masa depan bersama.</p>
 
-        {/* Tombol Bagikan Link Otomatis */}
-        <div className="mt-4">
-          <button 
-            onClick={handleCopyShareLink}
-            className="inline-flex items-center gap-2 text-xs font-medium bg-white text-[#475569] border border-[#E2E8F0] px-4 py-2 rounded-xl shadow-xs hover:bg-[#F8FAFC] transition active:scale-95"
-          >
-            🔗 Hubungkan ke HP Pasangan
-          </button>
-        </div>
-      </header>
+          {editingNames ? (
+            <div className={styles.editNames}>
+              <label className={styles.srOnly} htmlFor="boy-name">
+                Nama pertama
+              </label>
+              <input
+                id="boy-name"
+                className={styles.nameInput}
+                value={tempBoyName}
+                maxLength={18}
+                onChange={(event) => setTempBoyName(event.target.value)}
+              />
 
-      {/* Main Content Area */}
-      <main className="max-w-md mx-auto px-4 mt-8 pb-24">
-        {/* Tab Navigation Minimalis */}
-        <div className="flex bg-[#F1F5F9] p-1.5 rounded-2xl mb-6 shadow-xs border border-[#E2E8F0]">
-          <button 
-            onClick={() => setActiveTab('boy')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === 'boy' ? 'bg-white text-[#334155] shadow-xs' : 'text-[#64748B] hover:text-[#334155]'}`}
-          >
-            🧔 {boyName}
-          </button>
-          <button 
-            onClick={() => setActiveTab('together')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === 'together' ? 'bg-[#1E293B] text-white shadow-md' : 'text-[#64748B] hover:text-[#334155]'}`}
-          >
-            💍 Bersama
-          </button>
-          <button 
-            onClick={() => setActiveTab('girl')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all ${activeTab === 'girl' ? 'bg-white text-[#334155] shadow-xs' : 'text-[#64748B] hover:text-[#334155]'}`}
-          >
-            👩 {girlName}
-          </button>
-        </div>
+              <span className={styles.inlineAmp} aria-hidden="true">
+                &
+              </span>
 
-        {/* Progress Bar Interaktif */}
-        <div className="bg-white rounded-3xl p-5 border border-[#E2E8F0] shadow-xs mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-semibold text-[#475569] tracking-wider uppercase">Mimpi Tercapai</span>
-            <span className="text-sm font-bold text-[#1E293B]">{progressPercent}%</span>
+              <label className={styles.srOnly} htmlFor="girl-name">
+                Nama kedua
+              </label>
+              <input
+                id="girl-name"
+                className={styles.nameInput}
+                value={tempGirlName}
+                maxLength={18}
+                onChange={(event) => setTempGirlName(event.target.value)}
+              />
+
+              <div className={styles.editActions}>
+                <button className={styles.saveButton} type="button" onClick={handleSaveNames}>
+                  Simpan
+                </button>
+                <button className={styles.cancelButton} type="button" onClick={handleCancelEditNames}>
+                  Batal
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.namesRow}>
+              <h1 className={styles.namesTitle}>
+                {boyName}
+                <span className={styles.ampersand}>&</span>
+                {girlName}
+              </h1>
+
+              <button className={styles.editTrigger} type="button" onClick={handleStartEditNames} aria-label="Edit nama pasangan">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          <p className={styles.tagline}>Our Private Wishlist</p>
+
+          <button className={styles.linkButton} type="button" onClick={handleCopyLink}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            Hubungkan ke HP Pasangan
+          </button>
+        </header>
+
+        <div className={styles.divider} />
+
+        <nav className={styles.tabs} role="tablist" aria-label="Kategori wishlist">
+          {categories.map((category) => {
+            const isActive = activeTab === category;
+
+            return (
+              <button
+                key={category}
+                type="button"
+                role="tab"
+                data-category={category}
+                aria-selected={isActive}
+                className={`${styles.tab} ${isActive ? styles.tabActive : ''}`}
+                onClick={() => setActiveTab(category)}
+              >
+                <span className={styles.tabNumber}>{counts[category]}</span>
+                <span className={styles.tabLabel}>{names[category]}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <section className={styles.progressCard} aria-label="Progress wishlist">
+          <div className={styles.progressHeader}>
+            <div>
+              <p className={styles.progressLabel}>Mimpi Tercapai</p>
+              <p className={styles.progressNumber}>
+                {checkedCount}
+                <span> / {totalCount}</span>
+              </p>
+            </div>
+            <p className={styles.progressPercent}>{progressPercentage}%</p>
           </div>
-          <div className="h-2 w-full bg-[#F1F5F9] rounded-full overflow-hidden relative">
-            <div 
-              className={`h-full transition-all duration-700 ease-out rounded-full ${activeTab === 'boy' ? 'bg-[#475569]' : activeTab === 'girl' ? 'bg-[#EC4899]' : 'bg-[#D4AF37]'}`}
-              style={{ width: `${progressPercent}%` }}
-            />
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} style={{ width: `${progressPercentage}%` }} />
           </div>
-        </div>
+        </section>
 
-        {/* Input Form New Wishlist */}
-        <form onSubmit={handleAddWish} className="flex gap-2 mb-6">
-          <input 
-            type="text" 
+        <form className={styles.form} onSubmit={handleAdd}>
+          <label className={styles.srOnly} htmlFor="new-wish">
+            Tambah wishlist
+          </label>
+          <input
+            ref={inputRef}
+            id="new-wish"
+            className={styles.input}
+            type="text"
             value={newWish}
-            onChange={(e) => setNewWish(e.target.value)}
-            placeholder={`Tambahkan impian ${activeTab === 'together' ? 'bersama' : activeTab === 'boy' ? boyName : girlName}...`}
-            className="flex-1 px-5 py-3.5 rounded-2xl bg-white border border-[#E2E8F0] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E293B]/20 focus:border-[#1E293B] transition placeholder:text-[#94A3B8]"
+            onChange={(event) => setNewWish(event.target.value)}
+            placeholder={`Tambahkan impian ${names[activeTab].toLowerCase()}…`}
+            maxLength={120}
+            autoComplete="off"
           />
-          <button 
-            type="submit"
-            className="bg-[#1E293B] text-white px-5 rounded-2xl text-sm font-semibold hover:bg-black transition active:scale-95 shadow-md shadow-black/5"
-          >
+          <button className={styles.addButton} type="submit" disabled={!newWish.trim() || !roomID}>
             Tambah
           </button>
         </form>
 
-        {/* Wishlist Render List */}
-        <div className="space-y-3">
-          {filteredWishes.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-[#E2E8F0] px-6">
-              <span className="text-2xl block mb-2">🥂</span>
-              <p className="text-xs text-[#94A3B8] font-light">Belum ada wishlist di sini. Tulis impian pertamamu di atas!</p>
+        {shouldShowTools && (
+          <section className={styles.tools} aria-label="Filter wishlist">
+            <label className={styles.srOnly} htmlFor="search-wish">
+              Cari wishlist
+            </label>
+            <input
+              id="search-wish"
+              className={styles.searchInput}
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Cari wishlist..."
+            />
+
+            <div className={styles.selectGrid}>
+              <label className={styles.srOnly} htmlFor="status-filter">
+                Filter status
+              </label>
+              <select
+                id="status-filter"
+                className={styles.select}
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              >
+                <option value="all">Semua</option>
+                <option value="active">Aktif</option>
+                <option value="done">Tercapai</option>
+              </select>
+
+              <label className={styles.srOnly} htmlFor="sort-wish">
+                Urutkan wishlist
+              </label>
+              <select id="sort-wish" className={styles.select} value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}>
+                <option value="newest">Terbaru</option>
+                <option value="oldest">Terlama</option>
+                <option value="az">A-Z</option>
+                <option value="doneFirst">Tercapai dulu</option>
+              </select>
+            </div>
+          </section>
+        )}
+
+        <section className={styles.list} aria-live="polite">
+          {isLoading ? (
+            [0, 1, 2].map((index) => <div key={index} className={styles.skeleton} style={{ animationDelay: `${index * 100}ms` }} />)
+          ) : categoryWishes.length === 0 ? (
+            <div className={styles.emptyState}>
+              <p className={styles.emptyGlyph}>{activeTab === 'boy' ? '♟' : activeTab === 'girl' ? '♡' : '◈'}</p>
+              <p className={styles.emptyText}>
+                Belum ada wishlist {names[activeTab].toLowerCase()}.
+                <br />
+                Tulis impian pertamamu di atas.
+              </p>
+            </div>
+          ) : visibleWishes.length === 0 ? (
+            <div className={styles.emptyState}>
+              <p className={styles.emptyGlyph}>⌕</p>
+              <p className={styles.emptyText}>
+                Tidak ada wishlist yang cocok.
+                <br />
+                Coba ubah kata kunci atau filter.
+              </p>
             </div>
           ) : (
-            filteredWishes.map((item: WishItem) => (
-              <div 
+            visibleWishes.map((item, index) => (
+              <article
                 key={item.id}
-                onClick={() => handleToggleCheck(item.id)}
-                className={`group flex items-center justify-between p-4 bg-white rounded-2xl border transition-all cursor-pointer select-none ${item.isChecked ? 'border-[#E2E8F0] bg-[#F8FAFC]/50 opacity-60' : 'border-[#E2E8F0] hover:border-[#CBD5E1] shadow-xs'}`}
+                className={`${styles.item} ${item.is_checked ? styles.itemDone : ''} ${exitingIds.has(item.id) ? styles.itemExiting : ''}`}
+                style={{ animationDelay: `${index * 24}ms` }}
               >
-                <div className="flex items-center gap-4 flex-1 pr-2">
-                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${item.isChecked ? 'bg-[#1E293B] border-[#1E293B]' : 'border-[#CBD5E1] group-hover:border-[#94A3B8]'}`}>
-                    {item.isChecked && (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1.1 1 0 010 1.414l-8 8a1.1 1 0 01-1.414 0l-4-4a1.1 1 0 011.414-1.414L8 12.586l7.293-7.293a1.1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className={`text-sm font-medium transition-all break-all ${item.isChecked ? 'line-through text-[#94A3B8]' : 'text-[#334155]'}`}>
-                    {item.text}
-                  </span>
-                </div>
-                
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteWish(item.id);
-                  }}
-                  className="text-[#94A3B8] hover:text-[#EF4444] p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-md hover:bg-red-50"
+                <button
+                  type="button"
+                  aria-label={item.is_checked ? 'Tandai belum tercapai' : 'Tandai sudah tercapai'}
+                  aria-pressed={item.is_checked}
+                  className={`${styles.checkbox} ${item.is_checked ? styles.checkboxActive : ''}`}
+                  onClick={() => handleToggle(item.id, item.is_checked)}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  {item.is_checked && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                      <path d="M1 3.5L3.8 6.5L9 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+
+                <button className={styles.itemTextButton} type="button" onClick={() => handleToggle(item.id, item.is_checked)}>
+                  <span className={styles.itemText}>{item.text}</span>
+                  <span className={styles.itemMeta}>
+                    {item.is_checked ? 'Tercapai' : 'Aktif'} · {formatDate(item.created_at)}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.deleteButton}
+                  aria-label="Hapus wishlist"
+                  disabled={exitingIds.has(item.id)}
+                  onClick={() => handleDelete(item.id)}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                   </svg>
                 </button>
-              </div>
+              </article>
             ))
           )}
+        </section>
+
+        <footer className={styles.footer}>
+          <p className={styles.footerQuote}>“Every dream begins with a single wish.”</p>
+          <p className={styles.footerRoom}>{roomID ? roomID.slice(5, 17).toUpperCase() : 'ROOM'}</p>
+        </footer>
+      </section>
+
+      {notif && (
+        <div key={notif.key} className={styles.notification} role="status" aria-live="polite">
+          <span className={styles.notificationDot} />
+          {notif.message}
         </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
