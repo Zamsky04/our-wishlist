@@ -32,6 +32,16 @@ type WishInsert = {
 
 type WishUpdate = Partial<Pick<WishItem, 'text' | 'category' | 'is_checked' | 'created_at'>>;
 
+interface RoomItem {
+  room_id: string;
+  boy_name: string;
+  girl_name: string;
+  updated_at: number;
+}
+
+type RoomRow = RoomItem;
+type RoomInsert = RoomItem;
+
 const serifFont = Cormorant({
   subsets: ['latin'],
   weight: ['300', '400', '500'],
@@ -56,6 +66,7 @@ const supabase = isSupabaseReady ? createClient(supabaseUrl, supabaseAnonKey) : 
 type WishlistSupabaseClient = NonNullable<typeof supabase>;
 
 const WISHES_TABLE = 'wishes';
+const ROOMS_TABLE = 'wishlist_rooms';
 
 const categories: WishCategory[] = ['boy', 'together', 'girl'];
 
@@ -110,6 +121,13 @@ function mapRow(row: WishRow): WishItem {
     category: row.category,
     is_checked: row.is_checked,
     created_at: row.created_at,
+  };
+}
+
+function mapRoom(row: RoomRow) {
+  return {
+    boyName: row.boy_name?.trim() || 'Dia',
+    girlName: row.girl_name?.trim() || 'Kamu',
   };
 }
 
@@ -277,6 +295,69 @@ export default function WishlistPage() {
     };
   }, [notify, roomID]);
 
+  useEffect(() => {
+    if (!roomID) return;
+
+    const client = supabase;
+    if (!client) return;
+
+    let active = true;
+
+    function applyNames(nextBoyName: string, nextGirlName: string) {
+      if (!active) return;
+
+      setBoyName(nextBoyName);
+      setGirlName(nextGirlName);
+      setTempBoyName(nextBoyName);
+      setTempGirlName(nextGirlName);
+
+      writeStorage('wishlist_boy_name', nextBoyName);
+      writeStorage('wishlist_girl_name', nextGirlName);
+    }
+
+    async function loadRoomNames(db: WishlistSupabaseClient) {
+      const { data, error } = await db.from(ROOMS_TABLE).select('*').eq('room_id', roomID).maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        console.error('Supabase load room names error:', error);
+        return;
+      }
+
+      if (!data) return;
+
+      const mapped = mapRoom(data as RoomRow);
+      applyNames(mapped.boyName, mapped.girlName);
+    }
+
+    void loadRoomNames(client);
+
+    const channel = client
+      .channel(`wishlist-room-names-${roomID}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: ROOMS_TABLE,
+          filter: `room_id=eq.${roomID}`,
+        },
+        (payload) => {
+          if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') return;
+
+          const mapped = mapRoom(payload.new as RoomRow);
+          applyNames(mapped.boyName, mapped.girlName);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      void client.removeChannel(channel);
+    };
+  }, [roomID]);
+
   const names = useMemo(
     () => ({
       boy: boyName,
@@ -382,19 +463,48 @@ export default function WishlistPage() {
     setEditingNames(false);
   };
 
-  const handleSaveNames = () => {
+  const handleSaveNames = async () => {
     const nextBoyName = tempBoyName.trim() || 'Dia';
     const nextGirlName = tempGirlName.trim() || 'Kamu';
+    const previousBoyName = boyName;
+    const previousGirlName = girlName;
 
     setBoyName(nextBoyName);
     setGirlName(nextGirlName);
     setTempBoyName(nextBoyName);
     setTempGirlName(nextGirlName);
-
     writeStorage('wishlist_boy_name', nextBoyName);
     writeStorage('wishlist_girl_name', nextGirlName);
-
     setEditingNames(false);
+
+    const client = supabase;
+
+    if (!roomID || !client) {
+      notify('Nama diperbarui di perangkat ini');
+      return;
+    }
+
+    const payload: RoomInsert = {
+      room_id: roomID,
+      boy_name: nextBoyName,
+      girl_name: nextGirlName,
+      updated_at: Date.now(),
+    };
+
+    const { error } = await client.from(ROOMS_TABLE).upsert(payload, { onConflict: 'room_id' });
+
+    if (error) {
+      console.error('Supabase save room names error:', error);
+      setBoyName(previousBoyName);
+      setGirlName(previousGirlName);
+      setTempBoyName(previousBoyName);
+      setTempGirlName(previousGirlName);
+      writeStorage('wishlist_boy_name', previousBoyName);
+      writeStorage('wishlist_girl_name', previousGirlName);
+      notify('Gagal menyimpan nama ke realtime');
+      return;
+    }
+
     notify('Nama diperbarui');
   };
 
