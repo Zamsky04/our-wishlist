@@ -20,25 +20,17 @@ interface WishItem {
 }
 
 type WishRow = WishItem;
-type WishInsert = WishItem;
-type WishUpdate = Partial<Pick<WishItem, 'text' | 'category' | 'is_checked' | 'created_at'>>;
 
-type Database = {
-  public: {
-    Tables: {
-      wishes: {
-        Row: WishRow;
-        Insert: WishInsert;
-        Update: WishUpdate;
-        Relationships: [];
-      };
-    };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
-  };
+type WishInsert = {
+  id: string;
+  room_id: string;
+  text: string;
+  category: WishCategory;
+  is_checked?: boolean;
+  created_at: number;
 };
+
+type WishUpdate = Partial<Pick<WishItem, 'text' | 'category' | 'is_checked' | 'created_at'>>;
 
 const serifFont = Cormorant({
   subsets: ['latin'],
@@ -55,13 +47,15 @@ const sansFont = DM_Sans({
   display: 'swap',
 });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 const isSupabaseReady = Boolean(supabaseUrl && supabaseAnonKey);
 
-const supabase = isSupabaseReady
-  ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
-  : null;
+const supabase = isSupabaseReady ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+type WishlistSupabaseClient = NonNullable<typeof supabase>;
+
+const WISHES_TABLE = 'wishes';
 
 const categories: WishCategory[] = ['boy', 'together', 'girl'];
 
@@ -97,7 +91,7 @@ function writeStorage(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value);
   } catch {
-    // localStorage can be blocked in private mode. The app should keep working without it.
+    // localStorage bisa diblokir di private mode.
   }
 }
 
@@ -159,7 +153,7 @@ export default function WishlistPage() {
   const [activeTab, setActiveTab] = useState<WishCategory>('together');
   const [editingNames, setEditingNames] = useState(false);
   const [notif, setNotif] = useState<{ message: string; key: number } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(isSupabaseReady);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,7 +170,7 @@ export default function WishlistPage() {
     timerRef.current = setTimeout(() => setNotif(null), 2800);
   }, []);
 
-  useEffect(() => {
+  const initializeBrowserState = useCallback(() => {
     const nextRoomID = getInitialRoomID();
     const nextBoyName = readStorage('wishlist_boy_name', 'Dia');
     const nextGirlName = readStorage('wishlist_girl_name', 'Kamu');
@@ -191,6 +185,14 @@ export default function WishlistPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const timeoutID = window.setTimeout(initializeBrowserState, 0);
+
+    return () => window.clearTimeout(timeoutID);
+  }, [initializeBrowserState]);
+
+  useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -202,18 +204,18 @@ export default function WishlistPage() {
     const client = supabase;
 
     if (!client) {
-      setIsLoading(false);
-      notify('Supabase belum dikonfigurasi');
+      window.setTimeout(() => {
+        notify('Supabase belum dikonfigurasi');
+      }, 0);
+
       return;
     }
 
     let active = true;
 
-    async function loadWishes() {
-      setIsLoading(true);
-
-      const { data, error } = await client
-        .from('wishes')
+    async function loadWishes(db: WishlistSupabaseClient) {
+      const { data, error } = await db
+        .from(WISHES_TABLE)
         .select('*')
         .eq('room_id', roomID)
         .order('created_at', { ascending: false });
@@ -221,7 +223,8 @@ export default function WishlistPage() {
       if (!active) return;
 
       if (error) {
-        notify('Gagal memuat wishlist');
+        console.error('Supabase load wishes error:', error);
+        notify(error.message || 'Gagal memuat wishlist');
         setIsLoading(false);
         return;
       }
@@ -230,7 +233,7 @@ export default function WishlistPage() {
       setIsLoading(false);
     }
 
-    void loadWishes();
+    void loadWishes(client);
 
     const channel = client
       .channel(`wishlist-room-${roomID}`)
@@ -239,7 +242,7 @@ export default function WishlistPage() {
         {
           event: '*',
           schema: 'public',
-          table: 'wishes',
+          table: WISHES_TABLE,
           filter: `room_id=eq.${roomID}`,
         },
         (payload) => {
@@ -255,11 +258,13 @@ export default function WishlistPage() {
 
           if (payload.eventType === 'DELETE') {
             const old = payload.old as Pick<WishRow, 'id'>;
+
             setExitingIds((prev) => {
               const next = new Set(prev);
               next.delete(old.id);
               return next;
             });
+
             setWishes((prev) => prev.filter((wish) => wish.id !== old.id));
           }
         },
@@ -318,7 +323,7 @@ export default function WishlistPage() {
   const totalCount = categoryWishes.length;
   const progressPercentage = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
 
-  const shouldShowTools = categoryWishes.length >= 4 || searchQuery || statusFilter !== 'all' || sortBy !== 'newest';
+  const shouldShowTools = Boolean(categoryWishes.length >= 4 || searchQuery || statusFilter !== 'all' || sortBy !== 'newest');
 
   const handleAdd = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -326,7 +331,9 @@ export default function WishlistPage() {
     const text = newWish.trim();
     if (!text) return;
 
-    if (!roomID || !supabase) {
+    const client = supabase;
+
+    if (!roomID || !client) {
       notify('Koneksi belum siap');
       return;
     }
@@ -340,10 +347,19 @@ export default function WishlistPage() {
       created_at: Date.now(),
     };
 
+    const insertPayload: WishInsert = {
+      id: item.id,
+      room_id: item.room_id,
+      text: item.text,
+      category: item.category,
+      is_checked: item.is_checked,
+      created_at: item.created_at,
+    };
+
     setNewWish('');
     setWishes((prev) => sortNewest([item, ...prev]));
 
-    const { error } = await supabase.from('wishes').insert(item);
+    const { error } = await client.from(WISHES_TABLE).insert(insertPayload);
 
     if (error) {
       setWishes((prev) => prev.filter((wish) => wish.id !== item.id));
@@ -383,14 +399,19 @@ export default function WishlistPage() {
   };
 
   const handleToggle = async (id: string, currentValue: boolean) => {
-    if (!supabase) {
+    const client = supabase;
+
+    if (!client) {
       notify('Supabase belum dikonfigurasi');
       return;
     }
 
-    setWishes((prev) => prev.map((wish) => (wish.id === id ? { ...wish, is_checked: !currentValue } : wish)));
+    const nextValue = !currentValue;
+    const updatePayload: WishUpdate = { is_checked: nextValue };
 
-    const { error } = await supabase.from('wishes').update({ is_checked: !currentValue }).eq('id', id);
+    setWishes((prev) => prev.map((wish) => (wish.id === id ? { ...wish, is_checked: nextValue } : wish)));
+
+    const { error } = await client.from(WISHES_TABLE).update(updatePayload).eq('id', id);
 
     if (error) {
       setWishes((prev) => prev.map((wish) => (wish.id === id ? { ...wish, is_checked: currentValue } : wish)));
@@ -406,19 +427,22 @@ export default function WishlistPage() {
 
     setTimeout(async () => {
       setWishes((prev) => prev.filter((wish) => wish.id !== id));
+
       setExitingIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
 
-      if (!supabase) {
+      const client = supabase;
+
+      if (!client) {
         setWishes((prev) => (prev.some((wish) => wish.id === id) ? prev : sortNewest([deletedItem, ...prev])));
         notify('Supabase belum dikonfigurasi');
         return;
       }
 
-      const { error } = await supabase.from('wishes').delete().eq('id', id);
+      const { error } = await client.from(WISHES_TABLE).delete().eq('id', id);
 
       if (error) {
         setWishes((prev) => (prev.some((wish) => wish.id === id) ? prev : sortNewest([deletedItem, ...prev])));
@@ -447,10 +471,6 @@ export default function WishlistPage() {
     <main className={`${styles.root} ${serifFont.variable} ${sansFont.variable}`}>
       <section className={styles.page} data-accent={activeTab}>
         <header className={styles.header}>
-          <div className={styles.badge} aria-live="polite">
-            <span className={styles.badgeDot} />
-            Live Sync Aktif
-          </div>
 
           {editingNames ? (
             <div className={styles.editNames}>
@@ -498,7 +518,16 @@ export default function WishlistPage() {
               </h1>
 
               <button className={styles.editTrigger} type="button" onClick={handleStartEditNames} aria-label="Edit nama pasangan">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
@@ -509,7 +538,17 @@ export default function WishlistPage() {
           <p className={styles.tagline}>Our Private Wishlist</p>
 
           <button className={styles.linkButton} type="button" onClick={handleCopyLink}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
@@ -674,7 +713,17 @@ export default function WishlistPage() {
                   disabled={exitingIds.has(item.id)}
                   onClick={() => handleDelete(item.id)}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
                     <polyline points="3 6 5 6 21 6" />
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                     <path d="M10 11v6M14 11v6" />

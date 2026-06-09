@@ -164,6 +164,7 @@
   color: #aa9e93;
   cursor: pointer;
   opacity: 0.72;
+  transform: translateY(-50%);
   transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease, opacity 180ms ease;
 }
 
