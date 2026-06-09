@@ -135,12 +135,24 @@ function sortNewest(items: WishItem[]) {
   return [...items].sort((a, b) => b.created_at - a.created_at);
 }
 
-function formatDate(value: number) {
-  return new Intl.DateTimeFormat('id-ID', {
+function formatDateTime(value: number) {
+  const date = new Date(value);
+
+  const dateText = new Intl.DateTimeFormat('id-ID', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(value));
+  }).format(date);
+
+  const timeText = new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .format(date)
+    .replace('.', ':');
+
+  return `${dateText}, ${timeText}`;
 }
 
 async function copyText(value: string) {
@@ -571,7 +583,7 @@ export default function WishlistPage() {
       const url = new URL(window.location.href);
       url.searchParams.set('room', roomID);
       await copyText(url.toString());
-      notify('Link disalin — kirim ke pasangan');
+      notify('Link wishlist disalin');
     } catch {
       notify('Gagal menyalin link');
     }
@@ -662,7 +674,7 @@ export default function WishlistPage() {
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
-            Hubungkan ke HP Pasangan
+            Bagikan ke Pasangan
           </button>
         </header>
 
@@ -812,7 +824,7 @@ export default function WishlistPage() {
                 <button className={styles.itemTextButton} type="button" onClick={() => handleToggle(item.id, item.is_checked)}>
                   <span className={styles.itemText}>{item.text}</span>
                   <span className={styles.itemMeta}>
-                    {item.is_checked ? 'Tercapai' : 'Aktif'} · {formatDate(item.created_at)}
+                    {item.is_checked ? 'Tercapai' : 'Belum tercapai'} · {formatDateTime(item.created_at)}
                   </span>
                 </button>
 
