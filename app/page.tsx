@@ -762,7 +762,7 @@ export default function WishlistPage() {
                 onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
               >
                 <option value="all">Semua</option>
-                <option value="active">Aktif</option>
+                <option value="active">Belum Tercapai</option>
                 <option value="done">Tercapai</option>
               </select>
 
