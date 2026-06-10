@@ -1615,7 +1615,7 @@
 .giftTableHeader,
 .giftListRow {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 142px 118px 30px;
+  grid-template-columns: 30px minmax(0, 1fr) 142px 118px 66px;
   align-items: center;
   gap: 12px;
 }
@@ -1734,6 +1734,14 @@
   color: #c6bcb3;
 }
 
+.giftRowActions {
+  display: inline-flex;
+  justify-self: end;
+  gap: 4px;
+  align-items: center;
+}
+
+.giftRowEditButton,
 .giftRowDeleteButton {
   display: inline-flex;
   align-items: center;
@@ -1746,6 +1754,12 @@
   color: #c8bdb3;
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.giftRowEditButton:hover {
+  background: #f7ede4;
+  color: #b06b35;
+  transform: translateY(-1px);
 }
 
 .giftRowDeleteButton:hover {
@@ -1929,7 +1943,7 @@
 
   .giftTableHeader,
   .giftListRow {
-    grid-template-columns: 26px minmax(0, 1fr) 112px 94px 28px;
+    grid-template-columns: 26px minmax(0, 1fr) 112px 94px 62px;
     gap: 8px;
     padding-inline: 10px;
   }
@@ -2004,7 +2018,7 @@
   }
 
   .giftListRow {
-    grid-template-columns: 26px minmax(0, 1fr) 30px;
+    grid-template-columns: 26px minmax(0, 1fr) 32px;
     grid-template-rows: auto auto auto;
     align-items: start;
     min-height: 86px;
@@ -2048,9 +2062,10 @@
     margin-top: 6px;
   }
 
-  .giftRowDeleteButton {
+  .giftRowActions {
     grid-column: 3;
     grid-row: 1 / span 3;
+    flex-direction: column;
   }
 
   .giftAddPage {
