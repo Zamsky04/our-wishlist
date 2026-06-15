@@ -1701,32 +1701,46 @@
   white-space: nowrap;
 }
 
-.giftLinkCell,
+.giftLinkCell {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #8f5c35;
+  text-decoration: none;
+  box-shadow: none;
+  transition: transform 180ms ease;
+}
+
+.giftLinkCell:hover {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+
 .giftLinkEmpty {
   justify-self: end;
   width: fit-content;
   max-width: 100%;
-  min-width: 84px;
   overflow: hidden;
+  padding: 7px 10px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
-}
-
-.giftLinkCell {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 116px;
-  padding: 5px 8px 5px 5px;
-  border: 1px solid #eadfd5;
-  background: #fffaf6;
-  color: #8f5c35;
-  text-decoration: none;
-  box-shadow: 0 1px 4px rgba(78, 55, 37, 0.045);
-  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  color: #c6bcb3;
+  text-align: center;
 }
 
 .giftLinkCell:hover {
@@ -2029,15 +2043,18 @@
     font-size: 10.5px;
   }
 
-  .giftLinkCell,
-  .giftLinkEmpty {
-    min-width: 74px;
+  .giftLinkCell {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    padding: 0;
     font-size: 10.5px;
   }
 
-  .giftLinkCell {
-    gap: 5px;
-    padding: 4px 6px 4px 4px;
+  .giftLinkEmpty {
+    min-width: 74px;
+    font-size: 10.5px;
   }
 
   .giftLinkLogo {
@@ -2144,8 +2161,15 @@
     grid-column: 2;
     grid-row: 3;
     justify-self: start;
-    min-width: 86px;
     margin-top: 6px;
+  }
+
+  .giftLinkCell {
+    min-width: 30px;
+  }
+
+  .giftLinkEmpty {
+    min-width: 86px;
   }
 
   .giftRowActions {
