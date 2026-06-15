@@ -1615,7 +1615,7 @@
 .giftTableHeader,
 .giftListRow {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 142px 118px 66px;
+  grid-template-columns: 30px minmax(0, 1fr) 142px 150px 66px;
   align-items: center;
   gap: 12px;
 }
@@ -1708,30 +1708,102 @@
   max-width: 100%;
   min-width: 84px;
   overflow: hidden;
-  padding: 7px 10px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
-  text-align: center;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .giftLinkCell {
-  background: #f7ede4;
-  color: #b06b35;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 116px;
+  padding: 5px 8px 5px 5px;
+  border: 1px solid #eadfd5;
+  background: #fffaf6;
+  color: #8f5c35;
   text-decoration: none;
-  transition: background 180ms ease, transform 180ms ease;
+  box-shadow: 0 1px 4px rgba(78, 55, 37, 0.045);
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .giftLinkCell:hover {
-  background: #efdcc9;
+  border-color: #d9c2ad;
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(78, 55, 37, 0.09);
   transform: translateY(-1px);
 }
 
+.giftLinkLogo {
+  position: relative;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #eee5dc;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.giftLinkLogo img,
+.giftLinkLogoFallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.giftLinkLogo img {
+  z-index: 1;
+  object-fit: contain;
+  padding: 3px;
+  background: #fff;
+}
+
+.giftLinkLogoFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #aa8f78;
+}
+
+.giftLinkLogoFallback svg {
+  width: 14px;
+  height: 14px;
+}
+
+.giftLinkLabel {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.giftLinkExternalIcon {
+  display: inline-flex;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.62;
+}
+
+.giftLinkExternalIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
 .giftLinkEmpty {
+  padding: 7px 10px;
   color: #c6bcb3;
+  text-align: center;
 }
 
 .giftRowActions {
@@ -1943,7 +2015,7 @@
 
   .giftTableHeader,
   .giftListRow {
-    grid-template-columns: 26px minmax(0, 1fr) 112px 94px 62px;
+    grid-template-columns: 26px minmax(0, 1fr) 112px 108px 62px;
     gap: 8px;
     padding-inline: 10px;
   }
@@ -1960,8 +2032,22 @@
   .giftLinkCell,
   .giftLinkEmpty {
     min-width: 74px;
-    padding-inline: 8px;
     font-size: 10.5px;
+  }
+
+  .giftLinkCell {
+    gap: 5px;
+    padding: 4px 6px 4px 4px;
+  }
+
+  .giftLinkLogo {
+    width: 22px;
+    height: 22px;
+    flex-basis: 22px;
+  }
+
+  .giftLinkEmpty {
+    padding-inline: 8px;
   }
 
   .giftAddHeader {

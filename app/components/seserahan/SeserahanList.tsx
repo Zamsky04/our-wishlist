@@ -1,6 +1,7 @@
 import styles from '../../WishlistPage.module.css';
 import type { GiftItem } from '../../types';
-import { formatCompactCurrency, getLinkLabel } from '../../lib/helpers';
+import { formatCompactCurrency } from '../../lib/helpers';
+import GiftLinkBadge from './GiftLinkBadge';
 import type { GiftListGroup } from './types';
 
 interface SeserahanListProps {
@@ -183,13 +184,7 @@ export default function SeserahanList({
 
                       <strong className={styles.giftPriceCell}>{formatCompactCurrency(item.price)}</strong>
 
-                      {item.link_url ? (
-                        <a className={styles.giftLinkCell} href={item.link_url} target="_blank" rel="noreferrer">
-                          {getLinkLabel(item.link_url)} ↗
-                        </a>
-                      ) : (
-                        <span className={styles.giftLinkEmpty}>Belum diisi</span>
-                      )}
+                      {item.link_url ? <GiftLinkBadge url={item.link_url} /> : <span className={styles.giftLinkEmpty}>Belum diisi</span>}
 
                       <div className={styles.giftRowActions}>
                         <button type="button" className={styles.giftRowEditButton} aria-label="Edit barang seserahan" onClick={() => onEditGift(item)}>

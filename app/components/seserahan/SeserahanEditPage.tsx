@@ -132,7 +132,11 @@ export default function SeserahanEditPage({
             onChange={(event) => onLinkChange(event.target.value)}
             placeholder="Kosongkan kalau barang belum punya link"
             autoComplete="off"
+            inputMode="url"
+            spellCheck={false}
+            maxLength={2048}
           />
+          <small>Logo marketplace atau favicon website akan tampil otomatis di halaman daftar.</small>
         </div>
 
         <div className={styles.giftAddActions}>

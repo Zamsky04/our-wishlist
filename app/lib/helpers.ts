@@ -190,26 +190,98 @@ export function normalizeUrl(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(candidate);
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    if (!url.hostname) return null;
+
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export type LinkPlatform = 'shopee' | 'tiktok' | 'tokopedia' | 'lazada' | 'blibli' | 'bukalapak' | 'website';
+
+export interface LinkMetadata {
+  url: string;
+  hostname: string;
+  label: string;
+  platform: LinkPlatform;
+  faviconUrl: string;
+}
+
+const platformMatchers: Array<{
+  platform: Exclude<LinkPlatform, 'website'>;
+  label: string;
+  domains: string[];
+}> = [
+  {
+    platform: 'shopee',
+    label: 'Shopee',
+    domains: ['shopee.co.id', 'shopee.com', 'shope.ee'],
+  },
+  {
+    platform: 'tiktok',
+    label: 'TikTok Shop',
+    domains: ['tiktok.com', 'tiktokshop.com'],
+  },
+  {
+    platform: 'tokopedia',
+    label: 'Tokopedia',
+    domains: ['tokopedia.com', 'tokopedia.link'],
+  },
+  {
+    platform: 'lazada',
+    label: 'Lazada',
+    domains: ['lazada.co.id', 'lazada.com', 'lzd.co'],
+  },
+  {
+    platform: 'blibli',
+    label: 'Blibli',
+    domains: ['blibli.com'],
+  },
+  {
+    platform: 'bukalapak',
+    label: 'Bukalapak',
+    domains: ['bukalapak.com'],
+  },
+];
+
+function matchesDomain(hostname: string, domain: string) {
+  return hostname === domain || hostname.endsWith(`.${domain}`);
+}
+
+export function getLinkMetadata(value: string | null): LinkMetadata | null {
+  if (!value) return null;
+
+  const normalizedUrl = normalizeUrl(value);
+  if (!normalizedUrl) return null;
+
+  try {
+    const parsedUrl = new URL(normalizedUrl);
+    const hostname = parsedUrl.hostname.replace(/^www\./i, '').toLowerCase();
+    const marketplace = platformMatchers.find((item) => item.domains.some((domain) => matchesDomain(hostname, domain)));
+    const label = marketplace?.label || hostname;
+    const platform = marketplace?.platform || 'website';
+
+    return {
+      url: normalizedUrl,
+      hostname,
+      label,
+      platform,
+      faviconUrl: `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsedUrl.origin)}&sz=64`,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function getLinkLabel(value: string | null) {
-  if (!value) return 'Belum ada link';
-
-  try {
-    const hostname = new URL(value).hostname.replace(/^www\./, '').toLowerCase();
-
-    if (hostname.includes('shopee')) return 'Shopee';
-    if (hostname.includes('tiktok')) return 'TikTok';
-    if (hostname.includes('tokopedia')) return 'Tokopedia';
-    if (hostname.includes('lazada')) return 'Lazada';
-    if (hostname.includes('blibli')) return 'Blibli';
-
-    return 'Website';
-  } catch {
-    return 'Buka link';
-  }
+  return getLinkMetadata(value)?.label || (value ? 'Buka link' : 'Belum ada link');
 }
 
 export async function copyText(value: string) {

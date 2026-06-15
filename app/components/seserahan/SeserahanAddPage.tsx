@@ -134,7 +134,11 @@ export default function SeserahanAddPage({
             onChange={(event) => onLinkChange(event.target.value)}
             placeholder="Link TikTok/Shopee/Tokopedia/website barang"
             autoComplete="off"
+            inputMode="url"
+            spellCheck={false}
+            maxLength={2048}
           />
+          <small>Logo marketplace atau favicon website akan tampil otomatis di halaman daftar.</small>
         </div>
 
         <div className={styles.giftAddActions}>

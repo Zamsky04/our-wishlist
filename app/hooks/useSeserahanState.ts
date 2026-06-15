@@ -352,6 +352,12 @@ export function useSeserahanState({ roomID, notify }: UseSeserahanStateOptions) 
       return;
     }
 
+    const normalizedLink = normalizeUrl(newGiftLink);
+    if (newGiftLink.trim() && !normalizedLink) {
+      notify('Link tidak valid. Masukkan alamat website yang benar.');
+      return;
+    }
+
     const client = supabase;
 
     if (!roomID || !client) {
@@ -376,7 +382,7 @@ export function useSeserahanState({ roomID, notify }: UseSeserahanStateOptions) 
       room_id: roomID,
       category_id: finalCategoryID,
       title,
-      link_url: normalizeUrl(newGiftLink),
+      link_url: normalizedLink,
       price: parsePriceInput(newGiftPrice),
       is_checked: false,
       created_at: Date.now(),
@@ -444,6 +450,12 @@ export function useSeserahanState({ roomID, notify }: UseSeserahanStateOptions) 
       return;
     }
 
+    const normalizedLink = normalizeUrl(editGiftLink);
+    if (editGiftLink.trim() && !normalizedLink) {
+      notify('Link tidak valid. Masukkan alamat website yang benar.');
+      return;
+    }
+
     const client = supabase;
 
     if (!roomID || !client) {
@@ -479,7 +491,7 @@ export function useSeserahanState({ roomID, notify }: UseSeserahanStateOptions) 
     const updatePayload: GiftItemUpdate = {
       category_id: finalCategoryID,
       title,
-      link_url: normalizeUrl(editGiftLink),
+      link_url: normalizedLink,
       price: parsePriceInput(editGiftPrice),
     };
 
