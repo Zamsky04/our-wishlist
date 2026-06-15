@@ -212,42 +212,50 @@ export interface LinkMetadata {
   label: string;
   platform: LinkPlatform;
   faviconUrl: string;
+  fallbackFaviconUrl: string;
 }
 
 const platformMatchers: Array<{
   platform: Exclude<LinkPlatform, 'website'>;
   label: string;
   domains: string[];
+  iconDomain: string;
 }> = [
   {
     platform: 'shopee',
     label: 'Shopee',
     domains: ['shopee.co.id', 'shopee.com', 'shope.ee'],
+    iconDomain: 'shopee.co.id',
   },
   {
     platform: 'tiktok',
     label: 'TikTok Shop',
     domains: ['tiktok.com', 'tiktokshop.com'],
+    iconDomain: 'tiktok.com',
   },
   {
     platform: 'tokopedia',
     label: 'Tokopedia',
     domains: ['tokopedia.com', 'tokopedia.link'],
+    iconDomain: 'tokopedia.com',
   },
   {
     platform: 'lazada',
     label: 'Lazada',
     domains: ['lazada.co.id', 'lazada.com', 'lzd.co'],
+    iconDomain: 'lazada.co.id',
   },
   {
     platform: 'blibli',
     label: 'Blibli',
     domains: ['blibli.com'],
+    iconDomain: 'blibli.com',
   },
   {
     platform: 'bukalapak',
     label: 'Bukalapak',
     domains: ['bukalapak.com'],
+    iconDomain: 'bukalapak.com',
   },
 ];
 
@@ -267,13 +275,15 @@ export function getLinkMetadata(value: string | null): LinkMetadata | null {
     const marketplace = platformMatchers.find((item) => item.domains.some((domain) => matchesDomain(hostname, domain)));
     const label = marketplace?.label || hostname;
     const platform = marketplace?.platform || 'website';
+    const faviconDomain = marketplace?.iconDomain || hostname;
 
     return {
       url: normalizedUrl,
       hostname,
       label,
       platform,
-      faviconUrl: `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsedUrl.origin)}&sz=64`,
+      faviconUrl: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(faviconDomain)}&sz=64`,
+      fallbackFaviconUrl: new URL('/favicon.ico', parsedUrl.origin).toString(),
     };
   } catch {
     return null;

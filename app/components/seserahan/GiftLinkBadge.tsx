@@ -53,7 +53,15 @@ export default function GiftLinkBadge({ url }: GiftLinkBadgeProps) {
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={(event) => {
-            event.currentTarget.hidden = true;
+            const image = event.currentTarget;
+
+            if (image.dataset.fallbackAttempted !== 'true') {
+              image.dataset.fallbackAttempted = 'true';
+              image.src = metadata.fallbackFaviconUrl;
+              return;
+            }
+
+            image.hidden = true;
           }}
         />
       </span>
