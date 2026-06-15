@@ -24,6 +24,7 @@
 .root button,
 .root input,
 .root select,
+.root textarea,
 .root a {
   font: inherit;
 }
@@ -72,6 +73,14 @@
   --accent-soft: rgba(161, 115, 85, 0.16);
   --accent-panel: #fff8f3;
   --accent-border: #e0c3ac;
+}
+
+.page[data-accent='savings'] {
+  --accent: #698675;
+  --accent-bar: #83a38e;
+  --accent-soft: rgba(105, 134, 117, 0.17);
+  --accent-panel: #f4faf6;
+  --accent-border: #bfd4c7;
 }
 
 .srOnly {
@@ -928,7 +937,7 @@
 
 .mainMenuTabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   width: min(100%, 640px);
   margin: 0 auto 22px;
@@ -2185,5 +2194,946 @@
 
   .giftAddForm {
     padding: 14px;
+  }
+}
+
+/* Savings */
+.savingsBoard,
+.savingsGoalCard,
+.savingsEmptyState,
+.savingsFormPage,
+.savingsFormCard,
+.savingsDetailOverview,
+.savingsDepositForm,
+.savingsHistoryCard,
+.savingsSkeleton {
+  border: 1.5px solid #e7ece8;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 9px rgba(45, 66, 53, 0.045);
+}
+
+.savingsBoard {
+  overflow: hidden;
+  margin-bottom: 14px;
+  border-radius: 28px;
+}
+
+.savingsBoardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 21px 22px 18px;
+}
+
+.savingsEyebrow {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.savingsBoardHeader h2,
+.savingsPageHeader h2,
+.savingsDetailHeader h2 {
+  margin-top: 6px;
+  color: #1f2822;
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: clamp(32px, 5vw, 45px);
+  font-weight: 300;
+  line-height: 1;
+}
+
+.savingsBoardHeader > div > p:last-child,
+.savingsPageHeader > div > p:last-child,
+.savingsDetailHeader > div > p:last-child {
+  max-width: 590px;
+  margin-top: 9px;
+  color: #8f9b93;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.savingsOverviewGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid #edf1ee;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.savingsOverviewGrid > div {
+  min-width: 0;
+  padding: 15px 18px;
+  border-right: 1px solid #edf1ee;
+}
+
+.savingsOverviewGrid > div:last-child {
+  border-right: 0;
+}
+
+.savingsOverviewGrid span,
+.savingsMiniStats span,
+.savingsMainStat > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #a8b2ab;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.savingsOverviewGrid strong {
+  display: block;
+  overflow: hidden;
+  color: var(--accent);
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsOverallProgress {
+  padding: 13px 18px 16px;
+  background: var(--accent-panel);
+}
+
+.savingsOverallProgress > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  color: #718077;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.savingsOverallProgress strong {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.savingsProgressTrack {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9efeb;
+}
+
+.savingsProgressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-bar), var(--accent));
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.savingsGoalsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.savingsGoalCard {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  overflow: hidden;
+  border-radius: 24px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.savingsGoalCard::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 105px;
+  height: 105px;
+  border-radius: 0 0 0 100%;
+  background: var(--accent-panel);
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.savingsGoalCard:hover {
+  border-color: var(--accent-border);
+  box-shadow: 0 14px 34px var(--accent-soft);
+  transform: translateY(-2px);
+}
+
+.savingsGoalCardTop,
+.savingsGoalAmount,
+.savingsGoalMeta,
+.savingsGoalCard footer {
+  position: relative;
+  z-index: 1;
+}
+
+.savingsGoalCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.savingsGoalCardTop span {
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.savingsGoalCardTop h3 {
+  margin-top: 5px;
+  color: #273029;
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.savingsGoalCardTop > strong {
+  min-width: 49px;
+  color: var(--accent);
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 24px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.savingsGoalCard > p {
+  position: relative;
+  z-index: 1;
+  min-height: 36px;
+  color: #95a098;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.savingsGoalAmount {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.savingsGoalAmount strong {
+  color: #2e3b32;
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.savingsGoalAmount span {
+  color: #a5afa8;
+  font-size: 10.5px;
+}
+
+.savingsGoalMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.savingsGoalMeta span {
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid #e9eeea;
+  border-radius: 12px;
+  background: #fbfcfb;
+  color: #869188;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsGoalMeta b {
+  color: #5f6f64;
+}
+
+.savingsGoalCard footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #edf1ee;
+  color: #a4aea7;
+  font-size: 9.5px;
+}
+
+.savingsGoalCard footer span:nth-child(2) {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsGoalCard footer b {
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.savingsEmptyState {
+  display: flex;
+  min-height: 250px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 30px;
+  border-radius: 26px;
+  text-align: center;
+}
+
+.savingsEmptyState > span {
+  display: inline-flex;
+  width: 54px;
+  height: 54px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--accent-panel);
+  color: var(--accent);
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 18px;
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+.savingsEmptyState h3,
+.savingsEmptyState h4 {
+  color: #2b342e;
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 27px;
+  font-weight: 400;
+}
+
+.savingsEmptyState p {
+  max-width: 500px;
+  margin-bottom: 8px;
+  color: #97a198;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.savingsSkeleton {
+  height: 280px;
+  border-radius: 24px;
+  background: linear-gradient(90deg, #f1f4f2 0%, #e6ece8 50%, #f1f4f2 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1.25s ease-in-out infinite;
+}
+
+.savingsFormPage,
+.savingsDetailOverview,
+.savingsDepositForm,
+.savingsHistoryCard {
+  border-radius: 28px;
+}
+
+.savingsFormPage {
+  padding: 18px;
+}
+
+.savingsPageHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.savingsFormCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+}
+
+.savingsCurrencyInput {
+  position: relative;
+}
+
+.savingsCurrencyInput > span {
+  position: absolute;
+  top: 50%;
+  left: 15px;
+  z-index: 1;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  transform: translateY(-50%);
+}
+
+.savingsCurrencyInput .input {
+  width: 100%;
+  padding-left: 43px;
+}
+
+.savingsTextarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  padding: 13px 15px;
+  border: 1.5px solid #e7e4df;
+  border-radius: 17px;
+  outline: none;
+  background: #fff;
+  color: #2c2825;
+  font-size: 13px;
+  line-height: 1.55;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.savingsTextarea:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.savingsFormActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 3px;
+}
+
+.savingsDetailPage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.savingsDetailHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 4px 3px 8px;
+}
+
+.savingsDetailHeader .backButton {
+  margin-bottom: 15px;
+}
+
+.savingsDangerButton {
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #ebd2cd;
+  border-radius: 999px;
+  background: #fff8f6;
+  color: #b66c61;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 800;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.savingsDangerButton:hover {
+  background: #fff0ed;
+  transform: translateY(-1px);
+}
+
+.savingsDetailOverview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(310px, 0.9fr);
+  gap: 1px;
+  overflow: hidden;
+  background: #e9efeb;
+}
+
+.savingsMainStat,
+.savingsMiniStats {
+  background: #fff;
+}
+
+.savingsMainStat {
+  padding: 23px;
+}
+
+.savingsMainStat > strong {
+  display: block;
+  color: #2c3b31;
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: clamp(34px, 5vw, 48px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.savingsMainStat > small {
+  display: block;
+  margin-top: 7px;
+  margin-bottom: 18px;
+  color: #9ca69e;
+  font-size: 11px;
+}
+
+.savingsMainStat > b {
+  display: block;
+  margin-top: 9px;
+  color: var(--accent);
+  font-size: 10.5px;
+  text-align: right;
+}
+
+.savingsMiniStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.savingsMiniStats > div {
+  min-width: 0;
+  padding: 18px;
+  border-right: 1px solid #edf1ee;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.savingsMiniStats > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.savingsMiniStats > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.savingsMiniStats strong {
+  display: block;
+  overflow: hidden;
+  color: var(--accent);
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsDepositForm {
+  padding: 18px;
+}
+
+.savingsDepositHeading,
+.savingsHistoryHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.savingsDepositHeading h3,
+.savingsHistoryHeader h3 {
+  margin-top: 4px;
+  color: #29332c;
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.savingsDepositHeading > span,
+.savingsHistoryHeader > strong {
+  color: #9da79f;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.savingsContributorPicker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.savingsContributorButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1.5px solid #e6ebe7;
+  border-radius: 16px;
+  background: #fff;
+  color: #6f7e74;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.savingsContributorButton > span,
+.savingsPersonCell b {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eef3ef;
+  color: var(--accent);
+  font-family: var(--wishlist-serif), Georgia, serif;
+  font-size: 15px;
+}
+
+.savingsContributorButton strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsContributorButton:hover,
+.savingsContributorButtonActive {
+  border-color: var(--accent-border);
+  background: var(--accent-panel);
+  transform: translateY(-1px);
+}
+
+.savingsContributorButtonActive {
+  color: #334038;
+  box-shadow: 0 8px 20px var(--accent-soft);
+}
+
+.savingsDepositGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.savingsDepositGrid .giftPrimaryAction {
+  min-height: 46px;
+}
+
+.savingsHistoryCard {
+  overflow: hidden;
+}
+
+.savingsHistoryHeader {
+  margin: 0;
+  padding: 17px 18px 14px;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.savingsHistoryCard .savingsEmptyState {
+  min-height: 215px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.savingsTableWrap {
+  overflow-x: auto;
+}
+
+.savingsTableHeader,
+.savingsTableRow {
+  display: grid;
+  grid-template-columns: 112px 76px 130px minmax(150px, 1fr) 135px 34px;
+  align-items: center;
+  gap: 10px;
+  min-width: 760px;
+}
+
+.savingsTableHeader {
+  padding: 10px 16px;
+  background: #fafcfb;
+  color: #a9b2ac;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.savingsTableBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.savingsTableRow {
+  min-height: 57px;
+  padding: 9px 16px;
+  border-top: 1px solid #f0f3f1;
+  color: #68756d;
+  font-size: 11px;
+  animation: itemIn 280ms ease both;
+  transition: background 180ms ease;
+}
+
+.savingsTableRow:hover {
+  background: #fbfdfb;
+}
+
+.savingsPersonCell {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsPersonCell b {
+  width: 27px;
+  height: 27px;
+  flex-basis: 27px;
+  font-size: 13px;
+}
+
+.savingsNoteCell {
+  overflow: hidden;
+  color: #929d95;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savingsTableRow > strong {
+  justify-self: end;
+  color: var(--accent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.savingsDeleteEntryButton {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #c3aaa4;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.savingsDeleteEntryButton:hover {
+  background: #fff0ed;
+  color: #bd665a;
+}
+
+.savingsDeleteEntryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 760px) {
+  .savingsOverviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .savingsOverviewGrid > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .savingsOverviewGrid > div:nth-child(-n + 2) {
+    border-bottom: 1px solid #edf1ee;
+  }
+
+  .savingsDetailOverview {
+    grid-template-columns: 1fr;
+  }
+
+  .savingsDepositGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .savingsDepositGrid .giftPrimaryAction {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .mainMenuTabs {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .mainMenuTab {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding-inline: 7px;
+    font-size: 9.5px;
+  }
+
+  .mainMenuTab strong {
+    font-size: 18px;
+  }
+
+  .savingsBoardHeader,
+  .savingsDetailHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .savingsBoardHeader .giftPrimaryAction,
+  .savingsDangerButton {
+    width: 100%;
+  }
+
+  .savingsGoalsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .savingsPageHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .savingsFormActions,
+  .savingsDepositHeading,
+  .savingsHistoryHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .savingsFormActions > button,
+  .savingsDepositHeading > span,
+  .savingsHistoryHeader > strong {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .savingsBoard,
+  .savingsFormPage,
+  .savingsDetailOverview,
+  .savingsDepositForm,
+  .savingsHistoryCard {
+    border-radius: 22px;
+  }
+
+  .savingsBoardHeader,
+  .savingsMainStat,
+  .savingsDepositForm {
+    padding: 16px;
+  }
+
+  .savingsOverviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .savingsOverviewGrid > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-right: 0;
+    border-bottom: 1px solid #edf1ee;
+  }
+
+  .savingsOverviewGrid > div:last-child {
+    border-bottom: 0;
+  }
+
+  .savingsOverviewGrid span {
+    margin-bottom: 0;
+  }
+
+  .savingsOverviewGrid strong {
+    max-width: 58%;
+    text-align: right;
+  }
+
+  .savingsGoalMeta,
+  .savingsContributorPicker,
+  .savingsDepositGrid,
+  .savingsMiniStats {
+    grid-template-columns: 1fr;
+  }
+
+  .savingsMiniStats > div,
+  .savingsMiniStats > div:nth-child(2n),
+  .savingsMiniStats > div:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid #edf1ee;
+  }
+
+  .savingsMiniStats > div:last-child {
+    border-bottom: 0;
+  }
+
+  .savingsDepositGrid .giftPrimaryAction {
+    grid-column: auto;
+  }
+
+  .savingsTableWrap {
+    overflow: visible;
+  }
+
+  .savingsTableHeader {
+    display: none;
+  }
+
+  .savingsTableRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    min-width: 0;
+    padding: 14px 16px;
+  }
+
+  .savingsTableRow > span,
+  .savingsTableRow > strong {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    grid-column: 1;
+    justify-self: stretch;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .savingsTableRow > span::before,
+  .savingsTableRow > strong::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: #abb4ae;
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .savingsPersonCell b {
+    display: none;
+  }
+
+  .savingsNoteCell {
+    white-space: normal;
+  }
+
+  .savingsDeleteEntryButton {
+    grid-column: 2;
+    grid-row: 1 / span 5;
+    align-self: center;
+  }
+
+  .savingsGoalCard footer {
+    grid-template-columns: 1fr auto;
+  }
+
+  .savingsGoalCard footer span:nth-child(2) {
+    display: none;
   }
 }

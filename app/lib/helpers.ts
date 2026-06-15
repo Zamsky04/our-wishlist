@@ -1,5 +1,5 @@
 import { defaultGiftCategoryNames } from './constants';
-import type { GiftCategoryItem, GiftCategoryRow, GiftItem, GiftItemRow, RoomRow, WishItem, WishRow } from '../types';
+import type { GiftCategoryItem, GiftCategoryRow, GiftItem, GiftItemRow, RoomRow, SavingsEntry, SavingsEntryRow, SavingsGoal, SavingsGoalRow, WishItem, WishRow } from '../types';
 
 export function createRoomID() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -308,4 +308,57 @@ export async function copyText(value: string) {
   textarea.select();
   document.execCommand('copy');
   textarea.remove();
+}
+
+export function createSavingsGoalID() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `saving_${crypto.randomUUID().replace(/-/g, '').slice(0, 18)}`;
+  }
+
+  return `saving_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function createSavingsEntryID() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `savingentry_${crypto.randomUUID().replace(/-/g, '').slice(0, 18)}`;
+  }
+
+  return `savingentry_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+
+export function mapSavingsGoal(row: SavingsGoalRow): SavingsGoal {
+  return {
+    ...row,
+    target_amount: Number(row.target_amount || 0),
+    created_at: Number(row.created_at || Date.now()),
+    updated_at: Number(row.updated_at || row.created_at || Date.now()),
+  };
+}
+
+export function mapSavingsEntry(row: SavingsEntryRow): SavingsEntry {
+  return {
+    ...row,
+    amount: Number(row.amount || 0),
+    created_at: Number(row.created_at || Date.now()),
+  };
+}
+
+export function formatDateOnly(value: number) {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+export function formatTimeOnly(value: number) {
+  return new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+    .format(new Date(value))
+    .replace(/\./g, ':');
 }

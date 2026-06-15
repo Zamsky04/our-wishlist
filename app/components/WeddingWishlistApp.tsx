@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import styles from '../WishlistPage.module.css';
 import NotificationToast from './common/NotificationToast';
 import SeserahanPanel from './seserahan/SeserahanPanel';
+import SavingsPanel from './savings/SavingsPanel';
 import MainMenuTabs from './wedding/MainMenuTabs';
 import WeddingFooter from './wedding/WeddingFooter';
 import WeddingHeader from './wedding/WeddingHeader';
@@ -12,6 +13,7 @@ import WishlistPanel from './wishlist/WishlistPanel';
 import { useNotification } from '../hooks/useNotification';
 import { useRoomState } from '../hooks/useRoomState';
 import { useSeserahanState } from '../hooks/useSeserahanState';
+import { useSavingsState } from '../hooks/useSavingsState';
 import { useWishlistState } from '../hooks/useWishlistState';
 import type { MainMenu, WishCategory } from '../types';
 
@@ -21,6 +23,7 @@ export default function WeddingWishlistApp({ fontClassName = '' }: { fontClassNa
   const room = useRoomState({ notify });
   const wishlist = useWishlistState({ roomID: room.roomID, notify });
   const seserahan = useSeserahanState({ roomID: room.roomID, notify });
+  const savings = useSavingsState({ roomID: room.roomID, notify });
 
   const names = useMemo<Record<WishCategory, string>>(
     () => ({
@@ -37,11 +40,15 @@ export default function WeddingWishlistApp({ fontClassName = '' }: { fontClassNa
     if (menu === 'seserahan') {
       seserahan.setGiftPageMode('list');
     }
+
+    if (menu === 'savings') {
+      savings.handleOpenGoalList();
+    }
   };
 
   return (
     <main className={`${styles.root} ${fontClassName}`}>
-      <section className={styles.page} data-accent={mainMenu === 'seserahan' ? 'seserahan' : wishlist.activeTab}>
+      <section className={styles.page} data-accent={mainMenu === 'seserahan' ? 'seserahan' : mainMenu === 'savings' ? 'savings' : wishlist.activeTab}>
         <WeddingHeader
           boyName={room.boyName}
           girlName={room.girlName}
@@ -64,6 +71,8 @@ export default function WeddingWishlistApp({ fontClassName = '' }: { fontClassNa
           wishlistCount={wishlist.allWishlistCount}
           giftDoneCount={seserahan.giftDoneCount}
           giftCount={seserahan.giftItems.length}
+          savingsDoneCount={savings.achievedGoalCount}
+          savingsCount={savings.goalSummaries.length}
           onMenuChange={handleMenuChange}
         />
 
@@ -95,8 +104,10 @@ export default function WeddingWishlistApp({ fontClassName = '' }: { fontClassNa
             onToggle={wishlist.handleToggle}
             onDelete={wishlist.handleDelete}
           />
-        ) : (
+        ) : mainMenu === 'seserahan' ? (
           <SeserahanPanel roomID={room.roomID} seserahan={seserahan} />
+        ) : (
+          <SavingsPanel boyName={room.boyName} girlName={room.girlName} savings={savings} />
         )}
 
         <WeddingFooter roomID={room.roomID} />

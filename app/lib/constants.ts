@@ -7,3 +7,5 @@ export const GIFT_ITEMS_TABLE = 'seserahan_items';
 
 export const categories: WishCategory[] = ['boy', 'together', 'girl'];
 export const defaultGiftCategoryNames = ['Pakaian & Ibadah', 'Skincare & Makeup', 'Tas & Sepatu', 'Perhiasan', 'Lainnya'];
+export const SAVINGS_GOALS_TABLE = 'savings_goals';
+export const SAVINGS_ENTRIES_TABLE = 'savings_entries';

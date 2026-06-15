@@ -1,4 +1,4 @@
-export type MainMenu = 'wishlist' | 'seserahan';
+export type MainMenu = 'wishlist' | 'seserahan' | 'savings';
 export type WishCategory = 'boy' | 'together' | 'girl';
 export type StatusFilter = 'all' | 'active' | 'done';
 export type SortBy = 'newest' | 'oldest' | 'az' | 'doneFirst';
@@ -74,3 +74,38 @@ export interface RoomItem {
 
 export type RoomRow = RoomItem;
 export type RoomInsert = RoomItem;
+
+export type SavingsContributor = 'boy' | 'girl';
+export type SavingsPageMode = 'list' | 'add' | 'detail';
+
+export interface SavingsGoal {
+  id: string;
+  room_id: string;
+  name: string;
+  target_amount: number;
+  description: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export type SavingsGoalRow = Omit<SavingsGoal, 'target_amount'> & {
+  target_amount: number | string;
+};
+
+export type SavingsGoalInsert = SavingsGoal;
+
+export interface SavingsEntry {
+  id: string;
+  room_id: string;
+  goal_id: string;
+  contributor: SavingsContributor;
+  amount: number;
+  note: string | null;
+  created_at: number;
+}
+
+export type SavingsEntryRow = Omit<SavingsEntry, 'amount'> & {
+  amount: number | string;
+};
+
+export type SavingsEntryInsert = SavingsEntry;

@@ -7,10 +7,12 @@ interface MainMenuTabsProps {
   wishlistCount: number;
   giftDoneCount: number;
   giftCount: number;
+  savingsDoneCount: number;
+  savingsCount: number;
   onMenuChange: (menu: MainMenu) => void;
 }
 
-export default function MainMenuTabs({ activeMenu, wishlistDoneCount, wishlistCount, giftDoneCount, giftCount, onMenuChange }: MainMenuTabsProps) {
+export default function MainMenuTabs({ activeMenu, wishlistDoneCount, wishlistCount, giftDoneCount, giftCount, savingsDoneCount, savingsCount, onMenuChange }: MainMenuTabsProps) {
   return (
     <nav className={styles.mainMenuTabs} role="tablist" aria-label="Menu utama">
       <button
@@ -36,6 +38,19 @@ export default function MainMenuTabs({ activeMenu, wishlistDoneCount, wishlistCo
         <span>Seserahan</span>
         <strong>
           {giftDoneCount}/{giftCount}
+        </strong>
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeMenu === 'savings'}
+        className={`${styles.mainMenuTab} ${activeMenu === 'savings' ? styles.mainMenuTabActive : ''}`}
+        onClick={() => onMenuChange('savings')}
+      >
+        <span>Tabungan</span>
+        <strong>
+          {savingsDoneCount}/{savingsCount}
         </strong>
       </button>
     </nav>
